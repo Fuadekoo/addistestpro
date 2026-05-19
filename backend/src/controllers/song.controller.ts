@@ -1,54 +1,26 @@
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import SongModel from "../models/songModel.js";
+import { sanitizeDocument } from "../utils/document.util.js";
+import { buildTextFilter } from "../utils/query.util.js";
 import {
   validateCreateSongInput,
   validateSongListQuery,
   validateUpdateSongInput,
 } from "../validators/song.validator.js";
 
-function sendServerError(res: Response, error: unknown, fallbackMessage: string): Response {
-  const message = error instanceof Error ? error.message : fallbackMessage;
-  return res.status(500).json({
-    success: false,
-    message,
-  });
-}
+// this is a create a song controller, it will validate the input, check for duplicates, and create a new song in the database
 
-function hasToObject(value: unknown): value is { toObject(): Record<string, unknown> } {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  return typeof (value as { toObject?: unknown }).toObject === "function";
-}
-
-function sanitizeSong(song: { toObject(): Record<string, unknown> } | Record<string, unknown>): Record<string, unknown> {
-  const normalizedSong = hasToObject(song) ? song.toObject() : { ...song };
-  delete normalizedSong.__v;
-  return normalizedSong;
-}
-
-function buildTextFilter(value?: string): { $regex: string; $options: string } | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  return {
-    $regex: value,
-    $options: "i",
-  };
-}
-
-export async function createSong(req: Request, res: Response): Promise<Response> {
+export async function createSong(req: Request, res: Response, next: NextFunction): Promise<void> {
   const validation = validateCreateSongInput(req.body);
 
   if (!validation.success) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Validation failed.",
       errors: validation.errors,
     });
+    return;
   }
 
   const { title, artist, album, genre } = validation.data;
@@ -57,38 +29,36 @@ export async function createSong(req: Request, res: Response): Promise<Response>
     const existingSong = await SongModel.findOne({ title, artist, album }).lean();
 
     if (existingSong) {
-      return res.status(409).json({
+      res.status(409).json({
         success: false,
         message: "This song already exists for the same artist and album.",
       });
+      return;
     }
 
-    const song = await SongModel.create({
-      title,
-      artist,
-      album,
-      genre,
-    });
+    const song = await SongModel.create({ title, artist, album, genre });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Song created successfully.",
-      song: sanitizeSong(song),
+      song: sanitizeDocument(song),
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to create song.");
+    next(error);
   }
 }
 
-export async function listSongs(req: Request, res: Response): Promise<Response> {
+// this is a list songs controller
+export async function listSongs(req: Request, res: Response, next: NextFunction): Promise<void> {
   const validation = validateSongListQuery(req.query);
 
   if (!validation.success) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Validation failed.",
       errors: validation.errors,
     });
+    return;
   }
 
   const { page, limit, search, artist, album, genre, sortBy, sortOrder } = validation.data;
@@ -118,7 +88,7 @@ export async function listSongs(req: Request, res: Response): Promise<Response> 
       SongModel.countDocuments(filters),
     ]);
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Songs fetched successfully.",
       pagination: {
@@ -127,61 +97,67 @@ export async function listSongs(req: Request, res: Response): Promise<Response> 
         totalSongs,
         totalPages: Math.ceil(totalSongs / limit),
       },
-      songs: songs.map((song) => sanitizeSong(song)),
+      songs: songs.map((song) => sanitizeDocument(song)),
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to fetch songs.");
+    next(error);
   }
 }
 
-export async function getSongById(req: Request, res: Response): Promise<Response> {
+// this is a get song by id controller
+export async function getSongById(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { id } = req.params;
 
   if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Invalid song id.",
     });
+    return;
   }
 
   try {
     const song = await SongModel.findById(id);
 
     if (!song) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Song not found.",
       });
+      return;
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Song fetched successfully.",
-      song: sanitizeSong(song),
+      song: sanitizeDocument(song),
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to fetch song.");
+    next(error);
   }
 }
 
-export async function updateSong(req: Request, res: Response): Promise<Response> {
+// this is a update song controller 
+export async function updateSong(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { id } = req.params;
 
   if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Invalid song id.",
     });
+    return;
   }
 
   const validation = validateUpdateSongInput(req.body);
 
   if (!validation.success) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Validation failed.",
       errors: validation.errors,
     });
+    return;
   }
 
   try {
@@ -191,53 +167,58 @@ export async function updateSong(req: Request, res: Response): Promise<Response>
     });
 
     if (!song) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Song not found.",
       });
+      return;
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Song updated successfully.",
-      song: sanitizeSong(song),
+      song: sanitizeDocument(song),
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to update song.");
+    next(error);
   }
 }
 
-export async function deleteSong(req: Request, res: Response): Promise<Response> {
+// this is a delete song controller
+export async function deleteSong(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { id } = req.params;
 
   if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Invalid song id.",
     });
+    return;
   }
 
   try {
     const song = await SongModel.findByIdAndDelete(id);
 
     if (!song) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Song not found.",
       });
+      return;
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Song deleted successfully.",
-      song: sanitizeSong(song),
+      song: sanitizeDocument(song),
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to delete song.");
+    next(error);
   }
 }
 
-export async function getSongStatistics(_req: Request, res: Response): Promise<Response> {
+// this is a get song statistics controller
+export async function getSongStatistics(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const [stats] = await SongModel.aggregate([
       {
@@ -264,17 +245,10 @@ export async function getSongStatistics(_req: Request, res: Response): Promise<R
           ],
           songsPerGenre: [
             {
-              $group: {
-                _id: "$genre",
-                songCount: { $sum: 1 },
-              },
+              $group: { _id: "$genre", songCount: { $sum: 1 } },
             },
             {
-              $project: {
-                _id: 0,
-                genre: "$_id",
-                songCount: 1,
-              },
+              $project: { _id: 0, genre: "$_id", songCount: 1 },
             },
             { $sort: { songCount: -1, genre: 1 } },
           ],
@@ -328,10 +302,7 @@ export async function getSongStatistics(_req: Request, res: Response): Promise<R
                 songCount: { $sum: "$songCount" },
                 albumCount: { $sum: 1 },
                 albums: {
-                  $push: {
-                    album: "$_id.album",
-                    songCount: "$songCount",
-                  },
+                  $push: { album: "$_id.album", songCount: "$songCount" },
                 },
               },
             },
@@ -357,7 +328,7 @@ export async function getSongStatistics(_req: Request, res: Response): Promise<R
       totalGenres: 0,
     };
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Song statistics fetched successfully.",
       stats: {
@@ -369,6 +340,6 @@ export async function getSongStatistics(_req: Request, res: Response): Promise<R
       },
     });
   } catch (error) {
-    return sendServerError(res, error, "Unable to fetch song statistics.");
+    next(error);
   }
 }

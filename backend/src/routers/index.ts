@@ -1,10 +1,18 @@
-import { Router } from "express";
-import authRouter from "./auth.route.js";
+import { Router, type Request, type Response } from "express";
 import songRouter from "./song.route.js";
 
-const router = Router();
+const apiRouter = Router();
+export const rootRouter = Router();
 
-router.use("/auth", authRouter);
-router.use("/songs", songRouter);
+function healthCheckHandler(_req: Request, res: Response): void {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+}
 
-export default router;
+apiRouter.get("/health", healthCheckHandler);
+
+apiRouter.use("/songs", songRouter);
+
+export default apiRouter;
