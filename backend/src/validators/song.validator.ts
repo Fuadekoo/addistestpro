@@ -1,193 +1,193 @@
+import { z, type ZodError, type ZodType } from "zod";
+
 type ValidationErrors = Record<string, string>;
 
 type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; errors: ValidationErrors };
 
-export type CreateSongInput = {
-  title: string;
-  artist: string;
-  album: string;
-  genre: string;
-};
+const sortByValues = [
+  "title",
+  "artist",
+  "album",
+  "genre",
+  "createdAt",
+  "updatedAt",
+] as const;
 
-export type UpdateSongInput = Partial<CreateSongInput>;
+const sortOrderValues = ["asc", "desc"] as const;
 
-export type SongListQuery = {
-  page: number;
-  limit: number;
-  search?: string;
-  artist?: string;
-  album?: string;
-  genre?: string;
-  sortBy: "title" | "artist" | "album" | "genre" | "createdAt" | "updatedAt";
-  sortOrder: "asc" | "desc";
-};
+const requiredSongField = (fieldName: string) =>
+  z
+    .string({
+      error: `${fieldName} is required.`,
+    })
+    .trim()
+    .min(1, `${fieldName} is required.`)
+    .min(2, `${fieldName} must be at least 2 characters long.`);
 
-function getBody(payload: unknown): Record<string, unknown> {
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    return payload as Record<string, unknown>;
-  }
+const optionalSongField = (fieldName: string) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
 
-  return {};
-}
+      const normalizedValue = value.trim();
+      return normalizedValue ? normalizedValue : undefined;
+    },
+    z
+      .string()
+      .min(2, `${fieldName} must be at least 2 characters long.`)
+      .optional(),
+  );
 
-function getString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
+const createSongSchema = z.object({
+  title: requiredSongField("Title"),
+  artist: requiredSongField("Artist"),
+  album: requiredSongField("Album"),
+  genre: requiredSongField("Genre"),
+});
 
-function getOptionalString(value: unknown): string | undefined {
-  const normalizedValue = getString(value);
-  return normalizedValue ? normalizedValue : undefined;
-}
+const updateSongSchema = z
+  .object({
+    title: optionalSongField("Title"),
+    artist: optionalSongField("Artist"),
+    album: optionalSongField("Album"),
+    genre: optionalSongField("Genre"),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    error: "At least one field is required for update.",
+    path: ["body"],
+  });
 
-function getPositiveInteger(value: unknown, defaultValue: number): number | null {
-  if (value === undefined || value === null || value === "") {
-    return defaultValue;
-  }
+const songListQuerySchema = z.object({
+  page: z.preprocess(
+    (value) => (value === undefined || value === null || value === "" ? 1 : value),
+    z.coerce.number().int("Page must be a positive integer.").positive("Page must be a positive integer."),
+  ),
+  limit: z.preprocess(
+    (value) => (value === undefined || value === null || value === "" ? 10 : value),
+    z.coerce
+      .number()
+      .int("Limit must be a positive integer.")
+      .positive("Limit must be a positive integer.")
+      .max(100, "Limit cannot be greater than 100."),
+  ),
+  search: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
 
-  const parsedValue = Number(value);
+      const normalizedValue = value.trim();
+      return normalizedValue ? normalizedValue : undefined;
+    },
+    z.string().optional(),
+  ),
+  artist: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
 
-  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return null;
-  }
+      const normalizedValue = value.trim();
+      return normalizedValue ? normalizedValue : undefined;
+    },
+    z.string().optional(),
+  ),
+  album: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
 
-  return parsedValue;
-}
+      const normalizedValue = value.trim();
+      return normalizedValue ? normalizedValue : undefined;
+    },
+    z.string().optional(),
+  ),
+  genre: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
 
-function validateSongFields(
-  payload: unknown,
-  mode: "create" | "update"
-): ValidationResult<CreateSongInput | UpdateSongInput> {
-  const body = getBody(payload);
-  const title = getOptionalString(body.title);
-  const artist = getOptionalString(body.artist);
-  const album = getOptionalString(body.album);
-  const genre = getOptionalString(body.genre);
+      const normalizedValue = value.trim();
+      return normalizedValue ? normalizedValue : undefined;
+    },
+    z.string().optional(),
+  ),
+  sortBy: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value === undefined || value === null || value === "" ? "createdAt" : value;
+      }
+
+      const normalizedValue = value.trim();
+      return normalizedValue || "createdAt";
+    },
+    z.enum(sortByValues, {
+      error: "sortBy must be one of title, artist, album, genre, createdAt, updatedAt.",
+    }),
+  ),
+  sortOrder: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value === undefined || value === null || value === "" ? "desc" : value;
+      }
+
+      const normalizedValue = value.trim().toLowerCase();
+      return normalizedValue || "desc";
+    },
+    z.enum(sortOrderValues, {
+      error: "sortOrder must be either asc or desc.",
+    }),
+  ),
+});
+
+function formatValidationErrors(error: ZodError): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  const values = { title, artist, album, genre };
-  const hasAtLeastOneField = Object.values(values).some(Boolean);
+  for (const issue of error.issues) {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "body";
 
-  if (mode === "create" || title !== undefined) {
-    if (!title) {
-      errors.title = "Title is required.";
-    } else if (title.length < 2) {
-      errors.title = "Title must be at least 2 characters long.";
+    if (!errors[path]) {
+      errors[path] = issue.message;
     }
   }
 
-  if (mode === "create" || artist !== undefined) {
-    if (!artist) {
-      errors.artist = "Artist is required.";
-    } else if (artist.length < 2) {
-      errors.artist = "Artist must be at least 2 characters long.";
-    }
-  }
+  return errors;
+}
 
-  if (mode === "create" || album !== undefined) {
-    if (!album) {
-      errors.album = "Album is required.";
-    } else if (album.length < 2) {
-      errors.album = "Album must be at least 2 characters long.";
-    }
-  }
+function validateWithSchema<T>(schema: ZodType<T>, payload: unknown): ValidationResult<T> {
+  const result = schema.safeParse(payload);
 
-  if (mode === "create" || genre !== undefined) {
-    if (!genre) {
-      errors.genre = "Genre is required.";
-    } else if (genre.length < 2) {
-      errors.genre = "Genre must be at least 2 characters long.";
-    }
-  }
-
-  if (mode === "update" && !hasAtLeastOneField) {
-    errors.body = "At least one field is required for update.";
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { success: false, errors };
-  }
-
-  if (mode === "create") {
+  if (!result.success) {
     return {
-      success: true,
-      data: {
-        title: title as string,
-        artist: artist as string,
-        album: album as string,
-        genre: genre as string,
-      },
+      success: false,
+      errors: formatValidationErrors(result.error),
     };
   }
 
   return {
     success: true,
-    data: {
-      ...(title !== undefined ? { title } : {}),
-      ...(artist !== undefined ? { artist } : {}),
-      ...(album !== undefined ? { album } : {}),
-      ...(genre !== undefined ? { genre } : {}),
-    },
+    data: result.data,
   };
 }
 
+export type CreateSongInput = z.infer<typeof createSongSchema>;
+export type UpdateSongInput = z.infer<typeof updateSongSchema>;
+export type SongListQuery = z.infer<typeof songListQuerySchema>;
+
 export function validateCreateSongInput(payload: unknown): ValidationResult<CreateSongInput> {
-  return validateSongFields(payload, "create") as ValidationResult<CreateSongInput>;
+  return validateWithSchema(createSongSchema, payload);
 }
 
 export function validateUpdateSongInput(payload: unknown): ValidationResult<UpdateSongInput> {
-  return validateSongFields(payload, "update") as ValidationResult<UpdateSongInput>;
+  return validateWithSchema(updateSongSchema, payload);
 }
 
 export function validateSongListQuery(payload: unknown): ValidationResult<SongListQuery> {
-  const query = getBody(payload);
-  const page = getPositiveInteger(query.page, 1);
-  const limit = getPositiveInteger(query.limit, 10);
-  const search = getOptionalString(query.search);
-  const artist = getOptionalString(query.artist);
-  const album = getOptionalString(query.album);
-  const genre = getOptionalString(query.genre);
-  const sortByRaw = getString(query.sortBy) || "createdAt";
-  const sortOrderRaw = getString(query.sortOrder).toLowerCase() || "desc";
-  const errors: ValidationErrors = {};
-
-  const allowedSortBy = new Set(["title", "artist", "album", "genre", "createdAt", "updatedAt"]);
-  const allowedSortOrder = new Set(["asc", "desc"]);
-
-  if (page === null) {
-    errors.page = "Page must be a positive integer.";
-  }
-
-  if (limit === null) {
-    errors.limit = "Limit must be a positive integer.";
-  } else if (limit > 100) {
-    errors.limit = "Limit cannot be greater than 100.";
-  }
-
-  if (!allowedSortBy.has(sortByRaw)) {
-    errors.sortBy = "sortBy must be one of title, artist, album, genre, createdAt, updatedAt.";
-  }
-
-  if (!allowedSortOrder.has(sortOrderRaw)) {
-    errors.sortOrder = "sortOrder must be either asc or desc.";
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { success: false, errors };
-  }
-
-  return {
-    success: true,
-    data: {
-      page: page as number,
-      limit: limit as number,
-      search,
-      artist,
-      album,
-      genre,
-      sortBy: sortByRaw as SongListQuery["sortBy"],
-      sortOrder: sortOrderRaw as SongListQuery["sortOrder"],
-    },
-  };
+  return validateWithSchema(songListQuerySchema, payload);
 }
