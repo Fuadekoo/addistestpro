@@ -1,4 +1,4 @@
-export default function Page() {
+export default function Home() {
   return (
     <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4">
       <div className="text-center">
