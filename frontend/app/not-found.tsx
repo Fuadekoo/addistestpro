@@ -1,19 +1,32 @@
 import Link from "next/link";
+import { Box } from "@/components/system/primitives";
+import { ButtonLink } from "@/components/system/ui";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center gap-4 text-center px-4">
-      <p className="text-7xl font-bold text-slate-950">404</p>
-      <h2 className="text-xl font-semibold text-slate-700">Page not found</h2>
-      <p className="text-sm text-slate-500">
+    <Box
+      as="main"
+      alignItems="center"
+      display="flex"
+      flexDirection="column"
+      gap="16px"
+      justifyContent="center"
+      minHeight="calc(100vh - 92px)"
+      paddingX={[4, 6]}
+      textAlign="center"
+    >
+      <Box as="p" color="text" fontSize={8} fontWeight="bold" lineHeight={1} margin={0}>
+        404
+      </Box>
+      <Box as="h2" color="textMuted" fontSize={4} fontWeight="semibold" margin={0}>
+        Page not found
+      </Box>
+      <Box as="p" color="textSoft" fontSize={1} margin={0}>
         The page you are looking for does not exist.
-      </p>
-      <Link
-        href="/"
-        className="mt-2 rounded-md bg-slate-950 px-4 py-2 text-sm text-white hover:bg-slate-800 transition-colors"
-      >
+      </Box>
+      <ButtonLink href="/" variant="primary" size="md" marginTop="8px">
         Go home
-      </Link>
-    </main>
+      </ButtonLink>
+    </Box>
   );
 }

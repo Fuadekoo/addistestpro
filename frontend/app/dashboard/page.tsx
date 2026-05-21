@@ -5,9 +5,6 @@ import {
   AlbumIcon,
   BarChart3Icon,
   Disc3Icon,
-  LibraryBigIcon,
-  Loader2Icon,
-  Music2Icon,
   RefreshCwIcon,
   Users2Icon,
   WavesIcon,
@@ -17,44 +14,35 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Box, Grid } from "@/components/system/primitives";
 import {
+  Badge,
+  Button,
+  ButtonLink,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import {
+  Divider,
+  Spinner,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+  TableScroll,
+} from "@/components/system/ui";
+import { theme } from "@/lib/theme";
 import { useAppSelector } from "@/redux/hooks";
 import { fetchSongStatisticsApi } from "@/redux/song/songApi";
 import type { SongStatistics } from "@/redux/song/songTypes";
-
-const genreChartConfig = {
-  songCount: {
-    label: "Songs",
-    color: "var(--color-chart-2)",
-  },
-} satisfies ChartConfig;
 
 function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -62,6 +50,38 @@ function formatErrorMessage(error: unknown): string {
   }
 
   return "Unable to load dashboard statistics right now.";
+}
+
+function GenreTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <Box
+      backgroundColor="surface"
+      border="1px solid"
+      borderColor="line"
+      borderRadius="md"
+      boxShadow="card"
+      padding="12px 14px"
+    >
+      <Box as="p" color="textMuted" fontSize={0} margin={0}>
+        {label}
+      </Box>
+      <Box as="p" fontSize={2} fontWeight="semibold" margin="4px 0 0">
+        {payload[0]?.value ?? 0} songs
+      </Box>
+    </Box>
+  );
 }
 
 export default function DashboardPage() {
@@ -105,293 +125,377 @@ export default function DashboardPage() {
   const genreData = stats?.songsPerGenre.slice(0, 8) ?? [];
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_36%),linear-gradient(to_bottom,rgba(248,250,252,0.96),rgba(255,255,255,1))] px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Card className="overflow-hidden border-0 bg-slate-950 text-slate-50 ring-1 ring-slate-900/10">
-          <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <Badge className="bg-white/12 text-white hover:bg-white/12">
-                Statistics dashboard
-              </Badge>
-              <CardTitle className="text-3xl tracking-tight">
-                Song library totals and breakdowns
-              </CardTitle>
-              <CardDescription className="max-w-3xl text-slate-300">
-                Overall totals, genre distribution, album inventory, and per-artist
-                breakdowns from the aggregated backend statistics endpoint.
-              </CardDescription>
-            </div>
+    <Box as="main" minHeight="100%" paddingX={[4, 6]} paddingY={[6, 7, 8]}>
+      <Box margin="0 auto" maxWidth="1280px" width="100%">
+        <Grid gap="24px">
+          <Card tone="strong">
+            <CardHeader
+              display="flex"
+              flexDirection={["column", "column", "row"]}
+              alignItems={["flex-start", "flex-start", "flex-end"]}
+              justifyContent="space-between"
+              gap="16px"
+            >
+              <Box display="grid" gap="10px">
+                <Badge tone="dark">Statistics dashboard</Badge>
+                <CardTitle as="h1" fontSize={[6, 7]}>
+                  Song library totals and breakdowns
+                </CardTitle>
+                <CardDescription color="strongMuted" maxWidth="720px">
+                  Overall totals, genre distribution, album inventory, and
+                  per-artist breakdowns from the aggregated backend statistics
+                  endpoint.
+                </CardDescription>
+              </Box>
 
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                <Link href="/songs">
-                  <Music2Icon />
+              <Box display="flex" flexWrap="wrap" gap="12px">
+                <ButtonLink
+                  href="/songs"
+                  variant="ghost"
+                  css={{
+                    backgroundColor: "rgba(255, 255, 255, 0.14)",
+                    border: "1px solid rgba(255, 255, 255, 0.18)",
+                    color: "#f8fafc",
+                  }}
+                >
                   Open songs
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={() => void loadStatistics(true)}
-                disabled={loading || refreshing}
-              >
-                <RefreshCwIcon className={refreshing ? "animate-spin" : undefined} />
-                Refresh
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {error ? (
-          <Card className="border border-destructive/20 bg-destructive/5 text-destructive shadow-none">
-            <CardHeader>
-              <CardTitle>Dashboard error</CardTitle>
-              <CardDescription className="text-destructive/80">{error}</CardDescription>
+                </ButtonLink>
+                <Button
+                  variant="ghost"
+                  onClick={() => void loadStatistics(true)}
+                  disabled={loading || refreshing}
+                  css={{
+                    backgroundColor: "rgba(255, 255, 255, 0.14)",
+                    border: "1px solid rgba(255, 255, 255, 0.18)",
+                    color: "#f8fafc",
+                  }}
+                >
+                  {refreshing ? <Spinner size={16} /> : <RefreshCwIcon size={16} />}
+                  Refresh
+                </Button>
+              </Box>
             </CardHeader>
           </Card>
-        ) : null}
 
-        {loading && !stats ? (
-          <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-            <CardContent className="flex min-h-64 items-center justify-center">
-              <span className="inline-flex items-center gap-2 text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin" />
-                Loading dashboard statistics...
-              </span>
-            </CardContent>
-          </Card>
-        ) : null}
+          {error ? (
+            <Card tone="danger">
+              <CardHeader>
+                <CardTitle as="h2">Dashboard error</CardTitle>
+                <CardDescription color="dangerText">{error}</CardDescription>
+              </CardHeader>
+            </Card>
+          ) : null}
 
-        {stats ? (
-          <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <Card className="bg-linear-to-br from-white to-slate-50">
+          {loading && !stats ? (
+            <Card>
+              <CardContent
+                alignItems="center"
+                display="flex"
+                justifyContent="center"
+                minHeight="256px"
+              >
+                <Box alignItems="center" color="textMuted" display="inline-flex" gap="10px">
+                  <Spinner size={16} />
+                  Loading dashboard statistics...
+                </Box>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {stats ? (
+            <>
+              <Grid gridTemplateColumns={["1fr", "1fr", "repeat(4, minmax(0, 1fr))"]} gap="16px">
+                <Card tone="tint">
+                  <CardHeader>
+                    <CardDescription>Total songs</CardDescription>
+                    <CardTitle
+                      as="p"
+                      display="flex"
+                      alignItems="center"
+                      gap="10px"
+                      fontSize={7}
+                    >
+                      <Disc3Icon color={theme.colors.textSoft} size={24} />
+                      {stats.totalSongs}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+
+                <Card tone="muted">
+                  <CardHeader>
+                    <CardDescription>Total artists</CardDescription>
+                    <CardTitle
+                      as="p"
+                      display="flex"
+                      alignItems="center"
+                      gap="10px"
+                      fontSize={7}
+                    >
+                      <Users2Icon color={theme.colors.textSoft} size={24} />
+                      {stats.totalArtists}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardDescription>Total albums</CardDescription>
+                    <CardTitle
+                      as="p"
+                      display="flex"
+                      alignItems="center"
+                      gap="10px"
+                      fontSize={7}
+                    >
+                      <AlbumIcon color={theme.colors.textSoft} size={24} />
+                      {stats.totalAlbums}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+
+                <Card tone="strong">
+                  <CardHeader>
+                    <CardDescription color="strongMuted">Total genres</CardDescription>
+                    <CardTitle
+                      as="p"
+                      display="flex"
+                      alignItems="center"
+                      gap="10px"
+                      fontSize={7}
+                    >
+                      <WavesIcon size={24} />
+                      {stats.totalGenres}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </Grid>
+
+              <Grid gridTemplateColumns={["1fr", "1fr", "1.3fr 0.9fr"]} gap="16px">
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h2" display="flex" alignItems="center" gap="10px">
+                      <BarChart3Icon size={18} />
+                      Songs per genre
+                    </CardTitle>
+                    <CardDescription>
+                      Top genre distribution from the current library.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Box height="320px" width="100%">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={genreData}>
+                          <CartesianGrid stroke={theme.colors.line} vertical={false} />
+                          <XAxis
+                            dataKey="genre"
+                            axisLine={false}
+                            tick={{ fill: theme.colors.textMuted, fontSize: 12 }}
+                            tickFormatter={(value) => String(value).slice(0, 10)}
+                            tickLine={false}
+                            tickMargin={10}
+                          />
+                          <YAxis
+                            allowDecimals={false}
+                            axisLine={false}
+                            tick={{ fill: theme.colors.textMuted, fontSize: 12 }}
+                            tickLine={false}
+                          />
+                          <Tooltip cursor={{ fill: "rgba(36, 87, 255, 0.08)" }} content={<GenreTooltip />} />
+                          <Bar
+                            dataKey="songCount"
+                            fill={theme.colors.primary}
+                            radius={[10, 10, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h2">Genre table</CardTitle>
+                    <CardDescription>
+                      Exact counts for every genre in the database.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Box maxHeight="320px" overflowY="auto" paddingRight="8px">
+                      <TableScroll>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Genre</TableHead>
+                              <TableHead align="right">Songs</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.songsPerGenre.map((item) => (
+                              <TableRow key={item.genre}>
+                                <TableCell>{item.genre}</TableCell>
+                                <TableCell align="right">
+                                  <Box as="span" fontWeight="semibold">
+                                    {item.songCount}
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableScroll>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid gridTemplateColumns={["1fr", "1fr", "1fr 1fr"]} gap="16px">
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h2">Artist overview</CardTitle>
+                    <CardDescription>
+                      Songs and album counts grouped by artist.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Box maxHeight="384px" overflowY="auto" paddingRight="8px">
+                      <TableScroll>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Artist</TableHead>
+                              <TableHead align="right">Songs</TableHead>
+                              <TableHead align="right">Albums</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.songsPerArtist.map((artist) => (
+                              <TableRow key={artist.artist}>
+                                <TableCell>
+                                  <Box display="grid" gap="4px">
+                                    <Box as="p" fontWeight="semibold" margin={0}>
+                                      {artist.artist}
+                                    </Box>
+                                    <Box as="p" color="textMuted" fontSize={0} margin={0}>
+                                      {artist.albums.join(", ")}
+                                    </Box>
+                                  </Box>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Box as="span" fontWeight="semibold">
+                                    {artist.songCount}
+                                  </Box>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Box as="span" fontWeight="semibold">
+                                    {artist.albumCount}
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableScroll>
+                    </Box>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h2">Album inventory</CardTitle>
+                    <CardDescription>
+                      Song counts for each album and its owning artist.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Box maxHeight="384px" overflowY="auto" paddingRight="8px">
+                      <TableScroll>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Album</TableHead>
+                              <TableHead>Artist</TableHead>
+                              <TableHead align="right">Songs</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.songsPerAlbum.map((album) => (
+                              <TableRow key={`${album.artist}-${album.album}`}>
+                                <TableCell>
+                                  <Box as="span" fontWeight="semibold">
+                                    {album.album}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>{album.artist}</TableCell>
+                                <TableCell align="right">
+                                  <Box as="span" fontWeight="semibold">
+                                    {album.songCount}
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableScroll>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Card>
                 <CardHeader>
-                  <CardDescription>Total songs</CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-3xl">
-                    <Disc3Icon className="size-6 text-slate-500" />
-                    {stats.totalSongs}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-linear-to-br from-white to-stone-50">
-                <CardHeader>
-                  <CardDescription>Total artists</CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-3xl">
-                    <Users2Icon className="size-6 text-slate-500" />
-                    {stats.totalArtists}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-linear-to-br from-white to-zinc-50">
-                <CardHeader>
-                  <CardDescription>Total albums</CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-3xl">
-                    <AlbumIcon className="size-6 text-slate-500" />
-                    {stats.totalAlbums}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-
-              <Card className="bg-linear-to-br from-slate-950 to-slate-800 text-slate-50 ring-1 ring-slate-900/10">
-                <CardHeader>
-                  <CardDescription className="text-slate-300">Total genres</CardDescription>
-                  <CardTitle className="flex items-center gap-2 text-3xl">
-                    <WavesIcon className="size-6" />
-                    {stats.totalGenres}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-            </section>
-
-            <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-              <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3Icon className="size-5" />
-                    Songs per genre
-                  </CardTitle>
+                  <CardTitle as="h2">Artist to album breakdown</CardTitle>
                   <CardDescription>
-                    Top genre distribution from the current library.
+                    Nested summary of how many songs each artist has inside each
+                    album.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={genreChartConfig} className="h-80 w-full">
-                    <BarChart accessibilityLayer data={genreData}>
-                      <CartesianGrid vertical={false} />
-                      <XAxis
-                        dataKey="genre"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={10}
-                        tickFormatter={(value) => String(value).slice(0, 10)}
-                      />
-                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                      <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent indicator="line" />}
-                      />
-                      <Bar
-                        dataKey="songCount"
-                        fill="var(--color-songCount)"
-                        radius={[8, 8, 0, 0]}
-                      />
-                    </BarChart>
-                  </ChartContainer>
+                  <Grid gridTemplateColumns={["1fr", "repeat(2, minmax(0, 1fr))", "repeat(3, minmax(0, 1fr))"]} gap="16px">
+                    {stats.artistAlbumBreakdown.map((artist) => (
+                      <Card key={artist.artist} tone="muted">
+                        <CardHeader paddingBottom="16px">
+                          <CardTitle as="h3" fontSize={4}>
+                            {artist.artist}
+                          </CardTitle>
+                          <CardDescription>
+                            {artist.songCount} songs across {artist.albumCount} albums
+                          </CardDescription>
+                        </CardHeader>
+                        <Divider />
+                        <CardContent display="grid" gap="12px" paddingTop="16px">
+                          {artist.albums.map((album) => (
+                            <Box
+                              key={`${artist.artist}-${album.album}`}
+                              alignItems="center"
+                              backgroundColor="surface"
+                              border="1px solid"
+                              borderColor="line"
+                              borderRadius="md"
+                              display="flex"
+                              justifyContent="space-between"
+                              padding="14px 16px"
+                            >
+                              <Box>
+                                <Box as="p" fontWeight="semibold" margin={0}>
+                                  {album.album}
+                                </Box>
+                                <Box as="p" color="textMuted" fontSize={0} margin="4px 0 0">
+                                  Album total
+                                </Box>
+                              </Box>
+                              <Badge variant="outline">{album.songCount} songs</Badge>
+                            </Box>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Grid>
                 </CardContent>
               </Card>
-
-              <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-                <CardHeader>
-                  <CardTitle>Genre table</CardTitle>
-                  <CardDescription>
-                    Exact counts for every genre in the database.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-80 pr-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Genre</TableHead>
-                          <TableHead className="text-right">Songs</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stats.songsPerGenre.map((item) => (
-                          <TableRow key={item.genre}>
-                            <TableCell>{item.genre}</TableCell>
-                            <TableCell className="text-right font-medium">
-                              {item.songCount}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </section>
-
-            <section className="grid gap-4 xl:grid-cols-2">
-              <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-                <CardHeader>
-                  <CardTitle>Artist overview</CardTitle>
-                  <CardDescription>
-                    Songs and album counts grouped by artist.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-96 pr-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Artist</TableHead>
-                          <TableHead className="text-right">Songs</TableHead>
-                          <TableHead className="text-right">Albums</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stats.songsPerArtist.map((artist) => (
-                          <TableRow key={artist.artist}>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <p className="font-medium">{artist.artist}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {artist.albums.join(", ")}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {artist.songCount}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {artist.albumCount}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-                <CardHeader>
-                  <CardTitle>Album inventory</CardTitle>
-                  <CardDescription>
-                    Song counts for each album and its owning artist.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-96 pr-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Album</TableHead>
-                          <TableHead>Artist</TableHead>
-                          <TableHead className="text-right">Songs</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stats.songsPerAlbum.map((album) => (
-                          <TableRow key={`${album.artist}-${album.album}`}>
-                            <TableCell className="font-medium">{album.album}</TableCell>
-                            <TableCell>{album.artist}</TableCell>
-                            <TableCell className="text-right font-medium">
-                              {album.songCount}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </section>
-
-            <section className="grid gap-4">
-              <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-                <CardHeader>
-                  <CardTitle>Artist to album breakdown</CardTitle>
-                  <CardDescription>
-                    Nested summary of how many songs each artist has inside each album.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {stats.artistAlbumBreakdown.map((artist) => (
-                    <Card key={artist.artist} className="border bg-slate-50 py-0 ring-0">
-                      <CardHeader className="py-4">
-                        <CardTitle className="text-lg">{artist.artist}</CardTitle>
-                        <CardDescription>
-                          {artist.songCount} songs across {artist.albumCount} albums
-                        </CardDescription>
-                      </CardHeader>
-                      <Separator />
-                      <CardContent className="space-y-3 py-4">
-                        {artist.albums.map((album) => (
-                          <div
-                            key={`${artist.artist}-${album.album}`}
-                            className="flex items-center justify-between rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200"
-                          >
-                            <div>
-                              <p className="font-medium">{album.album}</p>
-                              <p className="text-xs text-muted-foreground">Album total</p>
-                            </div>
-                            <Badge variant="outline">{album.songCount} songs</Badge>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </CardContent>
-              </Card>
-            </section>
-          </>
-        ) : null}
-      </div>
-    </main>
+            </>
+          ) : null}
+        </Grid>
+      </Box>
+    </Box>
   );
 }

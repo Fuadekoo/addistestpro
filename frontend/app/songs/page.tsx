@@ -1,11 +1,11 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   Disc3Icon,
   EyeIcon,
-  Loader2Icon,
   PencilLineIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -13,49 +13,30 @@ import {
   Trash2Icon,
   WavesIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { SongFormDialog, type SongFormValues } from "@/components/songs/song-form-dialog";
+import { Modal } from "@/components/system/modal";
+import { Box, Grid } from "@/components/system/primitives";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
+  Badge,
+  Button,
+  ButtonLink,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
+  Input,
   NativeSelect,
   NativeSelectOption,
-} from "@/components/ui/native-select";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
+  Spinner,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+  TableScroll,
+} from "@/components/system/ui";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
@@ -65,12 +46,6 @@ import {
   updateSong,
 } from "@/redux/song/songSlice";
 import type { Song } from "@/redux/song/songTypes";
-
-const statCardClasses = [
-  "bg-linear-to-br from-white to-slate-50",
-  "bg-linear-to-br from-white to-stone-50",
-  "bg-linear-to-br from-white to-zinc-50",
-];
 
 export default function SongsPage() {
   const dispatch = useAppDispatch();
@@ -164,6 +139,18 @@ export default function SongsPage() {
     ] as const;
   }, [currentPage, totalPages]);
 
+  function handleSearchChange(event: ChangeEvent<HTMLInputElement>) {
+    setSearch(event.target.value);
+  }
+
+  function handleGenreChange(event: ChangeEvent<HTMLSelectElement>) {
+    setSelectedGenre(event.target.value);
+  }
+
+  function handlePageSizeChange(event: ChangeEvent<HTMLSelectElement>) {
+    setPageSize(Number(event.target.value));
+  }
+
   useEffect(() => {
     dispatch(getSongs());
   }, [dispatch]);
@@ -215,305 +202,404 @@ export default function SongsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_38%),linear-gradient(to_bottom,rgba(248,250,252,0.96),rgba(255,255,255,1))] px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Card className="overflow-hidden border-0 bg-slate-950 text-slate-50 ring-1 ring-slate-900/10">
-          <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <Badge className="bg-white/12 text-white hover:bg-white/12">
-                Live library
-              </Badge>
-              <CardTitle className="text-3xl tracking-tight">
-                Real-Time Song Library Management
-              </CardTitle>
-              <CardDescription className="max-w-2xl text-slate-300">
-                Create, update, and remove songs with instant synchronized table refresh.
-              </CardDescription>
-            </div>
+    <Box as="main" minHeight="100%" paddingX={[4, 6]} paddingY={[6, 7, 8]}>
+      <Box margin="0 auto" maxWidth="1280px" width="100%">
+        <Grid gap="24px">
+          <Card tone="strong">
+            <CardHeader
+              display="flex"
+              flexDirection={["column", "column", "row"]}
+              alignItems={["flex-start", "flex-start", "flex-end"]}
+              justifyContent="space-between"
+              gap="16px"
+            >
+              <Box display="grid" gap="10px">
+                <Badge tone="dark">Live library</Badge>
+                <CardTitle as="h1" fontSize={[6, 7]}>
+                  Real-Time Song Library Management
+                </CardTitle>
+                <CardDescription color="strongMuted" maxWidth="540px">
+                  Create, update, and remove songs with instant synchronized table
+                  refresh.
+                </CardDescription>
+              </Box>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={() => dispatch(getSongs())}
-                disabled={loading || saving}
+              <Box display="flex" flexWrap="wrap" gap="12px">
+                <Button
+                  variant="ghost"
+                  onClick={() => dispatch(getSongs())}
+                  disabled={loading || saving}
+                  css={{
+                    backgroundColor: "rgba(255, 255, 255, 0.14)",
+                    border: "1px solid rgba(255, 255, 255, 0.18)",
+                    color: "#f8fafc",
+                  }}
+                >
+                  {loading ? <Spinner size={16} /> : <RefreshCwIcon size={16} />}
+                  Refresh
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleCreateSong}
+                  disabled={saving}
+                  css={{
+                    backgroundColor: "#ffffff",
+                    color: "#0f172a",
+                    border: "none",
+                  }}
+                >
+                  <PlusIcon size={16} />
+                  Add song
+                </Button>
+              </Box>
+            </CardHeader>
+          </Card>
+
+          <Grid gridTemplateColumns={["1fr", "1fr", "repeat(4, minmax(0, 1fr))"]} gap="16px">
+            <Card tone="tint">
+              <CardHeader>
+                <CardDescription>Total songs</CardDescription>
+                <CardTitle as="p" fontSize={7}>
+                  {serverPagination?.totalSongs ?? songs.length}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card tone="muted">
+              <CardHeader>
+                <CardDescription>Artists in catalog</CardDescription>
+                <CardTitle as="p" fontSize={7}>
+                  {totalArtists}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardDescription>Albums tracked</CardDescription>
+                <CardTitle as="p" fontSize={7}>
+                  {totalAlbums}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card tone="strong">
+              <CardHeader>
+                <CardDescription color="strongMuted">Genres and sync</CardDescription>
+                <CardTitle as="p" display="flex" alignItems="center" gap="10px" fontSize={5}>
+                  <WavesIcon size={18} />
+                  {totalGenres} genres
+                </CardTitle>
+                <CardDescription color="strongMuted">
+                  Last updated {lastUpdated}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Grid>
+
+          <Card>
+            <CardHeader
+              display="flex"
+              flexDirection={["column", "column", "row"]}
+              alignItems={["flex-start", "flex-start", "center"]}
+              justifyContent="space-between"
+              gap="16px"
+            >
+              <Box>
+                <CardTitle as="h2">Song table</CardTitle>
+                <CardDescription marginTop="8px">
+                  Search locally, edit through dialogs, and remove records with
+                  confirmation.
+                </CardDescription>
+              </Box>
+
+              <Box
+                display="grid"
+                gap="12px"
+                width="100%"
+                maxWidth={["100%", "100%", "560px"]}
+                gridTemplateColumns={["1fr", "1fr", "minmax(0, 1fr) 180px"]}
               >
-                <RefreshCwIcon className={loading ? "animate-spin" : undefined} />
-                Refresh
-              </Button>
-              <Button
-                className="bg-white text-slate-950 hover:bg-slate-100"
-                onClick={handleCreateSong}
-                disabled={saving}
-              >
-                <PlusIcon />
-                Add song
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
+                <Box position="relative">
+                  <SearchIcon
+                    size={16}
+                    style={{
+                      color: "#7b8698",
+                      left: 16,
+                      pointerEvents: "none",
+                      position: "absolute",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                    }}
+                  />
+                  <Input
+                    value={search}
+                    onChange={handleSearchChange}
+                    placeholder="Search title, artist, album, or genre"
+                    hasIcon
+                  />
+                </Box>
 
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-          <Card className={statCardClasses[0]}>
-            <CardHeader>
-              <CardDescription>Total songs</CardDescription>
-              <CardTitle className="text-3xl">
-                {serverPagination?.totalSongs ?? songs.length}
-              </CardTitle>
+                <NativeSelect
+                  value={selectedGenre}
+                  onChange={handleGenreChange}
+                >
+                  <NativeSelectOption value="all">All genres</NativeSelectOption>
+                  {genreOptions.map((genre) => (
+                    <NativeSelectOption key={genre} value={genre.toLowerCase()}>
+                      {genre}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Box>
             </CardHeader>
-          </Card>
 
-          <Card className={statCardClasses[1]}>
-            <CardHeader>
-              <CardDescription>Artists in catalog</CardDescription>
-              <CardTitle className="text-3xl">{totalArtists}</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card className={statCardClasses[2]}>
-            <CardHeader>
-              <CardDescription>Albums tracked</CardDescription>
-              <CardTitle className="text-3xl">{totalAlbums}</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card className="bg-linear-to-br from-slate-950 to-slate-800 text-slate-50 ring-1 ring-slate-900/10">
-            <CardHeader>
-              <CardDescription className="text-slate-300">Genres and sync</CardDescription>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <WavesIcon />
-                {totalGenres} genres
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Last updated {lastUpdated}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </section>
-
-        <Card className="border-0 shadow-sm ring-1 ring-slate-200/80">
-          <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Song table</CardTitle>
-              <CardDescription>
-                Search locally, edit inline through dialogs, and remove records with
-                confirmation.
-              </CardDescription>
-            </div>
-
-            <div className="flex w-full flex-col gap-3 sm:max-w-xl sm:flex-row sm:justify-end">
-              <div className="relative w-full sm:max-w-sm">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search title, artist, album, or genre"
-                  className="pl-9"
-                />
-              </div>
-
-              <NativeSelect
-                value={selectedGenre}
-                onChange={(event) => setSelectedGenre(event.target.value)}
-                className="w-full sm:w-44"
-              >
-                <NativeSelectOption value="all">All genres</NativeSelectOption>
-                {genreOptions.map((genre) => (
-                  <NativeSelectOption
-                    key={genre}
-                    value={genre.toLowerCase()}
-                  >
-                    {genre}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {error ? (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            ) : null}
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Artist</TableHead>
-                  <TableHead>Album</TableHead>
-                  <TableHead>Genre</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                      <span className="inline-flex items-center gap-2">
-                        <Loader2Icon className="size-4 animate-spin" />
-                        Loading songs...
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredSongs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-12 text-center">
-                      <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-                        <div className="rounded-full bg-slate-100 p-3 text-slate-700">
-                          <Disc3Icon className="size-5" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-medium">
-                            {songs.length === 0
-                              ? "No songs yet"
-                              : "No songs match this search"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {songs.length === 0
-                              ? "Create your first song and it will appear here immediately."
-                              : "Try a different keyword or clear the filter."}
-                          </p>
-                        </div>
-                        {songs.length === 0 ? (
-                          <Button onClick={handleCreateSong}>
-                            <PlusIcon />
-                            Add first song
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedData.map((song) => (
-                    <TableRow key={song.id}>
-                      <TableCell className="font-medium">{song.title}</TableCell>
-                      <TableCell>{song.artist}</TableCell>
-                      <TableCell>{song.album}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{song.genre}</Badge>
-                      </TableCell>
-                      <TableCell>{format(new Date(song.updatedAt), "MMM d, yyyy")}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button asChild variant="ghost" size="sm">
-                            <Link href={`/songs/${song.id}`} aria-label={`View details for ${song.title}`}>
-                              <EyeIcon />
-                              View
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditSong(song)}
-                            disabled={saving || deletingId === song.id}
-                          >
-                            <PencilLineIcon />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setSongPendingDelete(song)}
-                            disabled={saving || deletingId === song.id}
-                          >
-                            {deletingId === song.id ? (
-                              <Loader2Icon className="animate-spin" />
-                            ) : (
-                              <Trash2Icon />
-                            )}
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-
-            <div className="flex flex-col gap-4 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <p>
-                  Showing {totalItems === 0 ? 0 : startIndex + 1}-{endIndex} of{" "}
-                  {totalItems} filtered songs
-                </p>
-                {serverPagination?.totalSongs !== undefined &&
-                serverPagination.totalSongs !== totalItems ? (
-                  <p>{serverPagination.totalSongs} total songs in the library</p>
+            <CardContent>
+              <Grid gap="20px">
+                {error ? (
+                  <Card tone="danger">
+                    <CardContent padding="16px 18px">{error}</CardContent>
+                  </Card>
                 ) : null}
-              </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Rows per page</span>
-                  <NativeSelect
-                    size="sm"
-                    value={String(pageSize)}
-                    onChange={(event) => setPageSize(Number(event.target.value))}
+                <TableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Artist</TableHead>
+                        <TableHead>Album</TableHead>
+                        <TableHead>Genre</TableHead>
+                        <TableHead>Updated</TableHead>
+                        <TableHead align="right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={6}>
+                            <Box
+                              alignItems="center"
+                              color="textMuted"
+                              display="inline-flex"
+                              gap="10px"
+                              minHeight="180px"
+                            >
+                              <Spinner size={16} />
+                              Loading songs...
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredSongs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6}>
+                            <Box
+                              alignItems="center"
+                              display="flex"
+                              flexDirection="column"
+                              gap="14px"
+                              margin="0 auto"
+                              maxWidth="360px"
+                              paddingY="20px"
+                              textAlign="center"
+                            >
+                              <Box
+                                alignItems="center"
+                                backgroundColor="surfaceTint"
+                                borderRadius="pill"
+                                color="text"
+                                display="inline-flex"
+                                height="52px"
+                                justifyContent="center"
+                                width="52px"
+                              >
+                                <Disc3Icon size={20} />
+                              </Box>
+                              <Box display="grid" gap="6px">
+                                <Box as="p" fontWeight="semibold" margin={0}>
+                                  {songs.length === 0
+                                    ? "No songs yet"
+                                    : "No songs match this search"}
+                                </Box>
+                                <Box as="p" color="textMuted" fontSize={1} margin={0}>
+                                  {songs.length === 0
+                                    ? "Create your first song and it will appear here immediately."
+                                    : "Try a different keyword or clear the filter."}
+                                </Box>
+                              </Box>
+                              {songs.length === 0 ? (
+                                <Button onClick={handleCreateSong}>
+                                  <PlusIcon size={16} />
+                                  Add first song
+                                </Button>
+                              ) : null}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedData.map((song) => (
+                          <TableRow key={song.id}>
+                            <TableCell>
+                              <Box as="p" fontWeight="semibold" margin={0}>
+                                {song.title}
+                              </Box>
+                            </TableCell>
+                            <TableCell>{song.artist}</TableCell>
+                            <TableCell>{song.album}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{song.genre}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(song.updatedAt), "MMM d, yyyy")}
+                            </TableCell>
+                            <TableCell align="right">
+                              <Box
+                                display="flex"
+                                flexWrap="wrap"
+                                gap="8px"
+                                justifyContent="flex-end"
+                              >
+                                <ButtonLink
+                                  href={`/songs/${song.id}`}
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`View details for ${song.title}`}
+                                >
+                                  <EyeIcon size={16} />
+                                  View
+                                </ButtonLink>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditSong(song)}
+                                  disabled={saving || deletingId === song.id}
+                                >
+                                  <PencilLineIcon size={16} />
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => setSongPendingDelete(song)}
+                                  disabled={saving || deletingId === song.id}
+                                >
+                                  {deletingId === song.id ? (
+                                    <Spinner size={16} />
+                                  ) : (
+                                    <Trash2Icon size={16} />
+                                  )}
+                                  Delete
+                                </Button>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableScroll>
+
+                <Box
+                  borderTop="1px solid"
+                  borderColor="line"
+                  display="flex"
+                  flexDirection={["column", "column", "row"]}
+                  gap="16px"
+                  justifyContent="space-between"
+                  paddingTop="20px"
+                >
+                  <Box color="textMuted" fontSize={1}>
+                    <Box as="p" margin={0}>
+                      Showing {totalItems === 0 ? 0 : startIndex + 1}-{endIndex} of{" "}
+                      {totalItems} filtered songs
+                    </Box>
+                    {serverPagination?.totalSongs !== undefined &&
+                    serverPagination.totalSongs !== totalItems ? (
+                      <Box as="p" margin="6px 0 0">
+                        {serverPagination.totalSongs} total songs in the library
+                      </Box>
+                    ) : null}
+                  </Box>
+
+                  <Box
+                    alignItems={["stretch", "stretch", "center"]}
+                    display="flex"
+                    flexDirection={["column", "column", "row"]}
+                    gap="12px"
                   >
-                    {pageSizeOptions.map((option) => (
-                      <NativeSelectOption key={option} value={String(option)}>
-                        {option}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                </div>
+                    <Box alignItems="center" display="flex" gap="10px">
+                      <Box as="span" color="textMuted" fontSize={1}>
+                        Rows per page
+                      </Box>
+                      <Box minWidth="92px">
+                        <NativeSelect
+                          sizeVariant="sm"
+                          value={String(pageSize)}
+                          onChange={handlePageSizeChange}
+                        >
+                          {pageSizeOptions.map((option) => (
+                            <NativeSelectOption key={option} value={String(option)}>
+                              {option}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      </Box>
+                    </Box>
 
-                {totalItems > 0 ? (
-                  <Pagination className="mx-0 w-auto justify-start">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            goToPreviousPage();
-                          }}
-                          className={!canGoPrevious ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
+                    {totalItems > 0 ? (
+                      <Box alignItems="center" display="flex" flexWrap="wrap" gap="8px">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={goToPreviousPage}
+                          disabled={!canGoPrevious}
+                        >
+                          Previous
+                        </Button>
 
-                      {paginationItems.map((item) => (
-                        <PaginationItem key={String(item)}>
-                          {typeof item === "number" ? (
-                            <PaginationLink
-                              href="#"
-                              isActive={item === currentPage}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                setPage(item);
-                              }}
+                        {paginationItems.map((item) =>
+                          typeof item === "number" ? (
+                            <Button
+                              key={item}
+                              variant={item === currentPage ? "primary" : "secondary"}
+                              size="sm"
+                              onClick={() => setPage(item)}
                             >
                               {item}
-                            </PaginationLink>
+                            </Button>
                           ) : (
-                            <PaginationEllipsis />
-                          )}
-                        </PaginationItem>
-                      ))}
+                            <Box
+                              key={item}
+                              alignItems="center"
+                              color="textMuted"
+                              display="inline-flex"
+                              fontSize={1}
+                              justifyContent="center"
+                              minWidth="32px"
+                            >
+                              ...
+                            </Box>
+                          ),
+                        )}
 
-                      <PaginationItem>
-                        <PaginationNext
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            goToNextPage();
-                          }}
-                          className={!canGoNext ? "pointer-events-none opacity-50" : ""}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                ) : null}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={goToNextPage}
+                          disabled={!canGoNext}
+                        >
+                          Next
+                        </Button>
+                      </Box>
+                    ) : null}
+                  </Box>
+                </Box>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Box>
 
       <SongFormDialog
         open={isFormOpen}
@@ -529,35 +615,42 @@ export default function SongsPage() {
         onSubmit={handleFormSubmit}
       />
 
-      <AlertDialog
+      <Modal
         open={!!songPendingDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSongPendingDelete(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this song?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {songPendingDelete
-                ? `Remove "${songPendingDelete.title}" by ${songPendingDelete.artist}. The table will refresh right after deletion.`
-                : "This action cannot be undone."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
+        onClose={() => setSongPendingDelete(null)}
+        title="Delete this song?"
+        description={
+          songPendingDelete
+            ? `Remove "${songPendingDelete.title}" by ${songPendingDelete.artist}. The table will refresh right after deletion.`
+            : "This action cannot be undone."
+        }
+        maxWidth="520px"
+        allowClose={deletingId === null}
+        footer={(
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setSongPendingDelete(null)}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
               onClick={handleDeleteSong}
               disabled={deletingId !== null}
             >
+              {deletingId !== null ? <Spinner size={16} /> : null}
               Delete song
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </main>
+            </Button>
+          </>
+        )}
+      >
+        <Box as="p" color="textMuted" lineHeight={1.7} margin={0}>
+          This action removes the selected song from the library and cannot be
+          undone.
+        </Box>
+      </Modal>
+    </Box>
   );
 }

@@ -2,26 +2,11 @@
 
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Field,
-  FieldContent,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Grid } from "@/components/system/primitives";
+import { Modal } from "@/components/system/modal";
+import { Button, FieldError, Input, Label, Spinner } from "@/components/system/ui";
 import type { Song, SongPayload } from "@/redux/song/songTypes";
 
 const songFormSchema = z.object({
@@ -85,84 +70,84 @@ export function SongFormDialog({
   const isEditing = !!song;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0">
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>{isEditing ? "Edit song" : "Add a new song"}</DialogTitle>
-            <DialogDescription>
-              {isEditing
-                ? "Update the track details and the table will refresh automatically."
-                : "Create a song entry with clean validation before it reaches the API."}
-            </DialogDescription>
-          </DialogHeader>
+    <Modal
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={isEditing ? "Edit song" : "Add a new song"}
+      description={
+        isEditing
+          ? "Update the track details and the table will refresh automatically."
+          : "Create a song entry with clean validation before it reaches the API."
+      }
+      maxWidth="720px"
+      footer={(
+        <>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" form="song-form" disabled={isSubmitting}>
+            {isSubmitting ? <Spinner size={16} /> : null}
+            {isEditing ? "Save changes" : "Create song"}
+          </Button>
+        </>
+      )}
+    >
+      <form id="song-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <Grid gridTemplateColumns={["1fr", "1fr 1fr"]} gap="16px">
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              placeholder="Blinding Lights"
+              aria-invalid={!!errors.title}
+              disabled={isSubmitting}
+              {...form.register("title")}
+            />
+            {errors.title ? <FieldError>{errors.title.message}</FieldError> : null}
+          </div>
 
-          <FieldGroup className="grid gap-4 px-6 py-5 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="title">Title</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="title"
-                  placeholder="Blinding Lights"
-                  aria-invalid={!!errors.title}
-                  disabled={isSubmitting}
-                  {...form.register("title")}
-                />
-                <FieldError errors={errors.title ? [errors.title] : undefined} />
-              </FieldContent>
-            </Field>
+          <div>
+            <Label htmlFor="artist">Artist</Label>
+            <Input
+              id="artist"
+              placeholder="The Weeknd"
+              aria-invalid={!!errors.artist}
+              disabled={isSubmitting}
+              {...form.register("artist")}
+            />
+            {errors.artist ? <FieldError>{errors.artist.message}</FieldError> : null}
+          </div>
 
-            <Field>
-              <FieldLabel htmlFor="artist">Artist</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="artist"
-                  placeholder="The Weeknd"
-                  aria-invalid={!!errors.artist}
-                  disabled={isSubmitting}
-                  {...form.register("artist")}
-                />
-                <FieldError errors={errors.artist ? [errors.artist] : undefined} />
-              </FieldContent>
-            </Field>
+          <div>
+            <Label htmlFor="album">Album</Label>
+            <Input
+              id="album"
+              placeholder="After Hours"
+              aria-invalid={!!errors.album}
+              disabled={isSubmitting}
+              {...form.register("album")}
+            />
+            {errors.album ? <FieldError>{errors.album.message}</FieldError> : null}
+          </div>
 
-            <Field>
-              <FieldLabel htmlFor="album">Album</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="album"
-                  placeholder="After Hours"
-                  aria-invalid={!!errors.album}
-                  disabled={isSubmitting}
-                  {...form.register("album")}
-                />
-                <FieldError errors={errors.album ? [errors.album] : undefined} />
-              </FieldContent>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="genre">Genre</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="genre"
-                  placeholder="Synth-pop"
-                  aria-invalid={!!errors.genre}
-                  disabled={isSubmitting}
-                  {...form.register("genre")}
-                />
-                <FieldError errors={errors.genre ? [errors.genre] : undefined} />
-              </FieldContent>
-            </Field>
-          </FieldGroup>
-
-          <DialogFooter className="rounded-b-xl" showCloseButton>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2Icon className="animate-spin" /> : null}
-              {isEditing ? "Save changes" : "Create song"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          <div>
+            <Label htmlFor="genre">Genre</Label>
+            <Input
+              id="genre"
+              placeholder="Synth-pop"
+              aria-invalid={!!errors.genre}
+              disabled={isSubmitting}
+              {...form.register("genre")}
+            />
+            {errors.genre ? <FieldError>{errors.genre.message}</FieldError> : null}
+          </div>
+        </Grid>
+      </form>
+    </Modal>
   );
 }

@@ -1,14 +1,48 @@
+import { Box } from "@/components/system/primitives";
+
 export default function Home() {
   return (
-    <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4">
-      <div className="text-center">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-500">
+    <Box
+      as="main"
+      alignItems="center"
+      display="flex"
+      justifyContent="center"
+      minHeight="calc(100vh - 92px)"
+      paddingX={[4, 6]}
+      paddingY={[7, 8]}
+    >
+      <Box
+        backgroundColor="rgba(255, 255, 255, 0.7)"
+        border="1px solid"
+        borderColor="line"
+        borderRadius="xl"
+        boxShadow="card"
+        padding={[6, 8]}
+        textAlign="center"
+      >
+        <Box
+          as="p"
+          color="textMuted"
+          fontSize={1}
+          fontWeight="semibold"
+          letterSpacing="0.3em"
+          margin={0}
+          textTransform="uppercase"
+        >
           Designed by
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+        </Box>
+        <Box
+          as="h1"
+          color="text"
+          fontSize={[6, 8]}
+          fontWeight="bold"
+          letterSpacing="-0.04em"
+          lineHeight={1}
+          margin="16px 0 0"
+        >
           Fuad Abdurahman
-        </h1>
-      </div>
-    </main>
+        </Box>
+      </Box>
+    </Box>
   );
 }
